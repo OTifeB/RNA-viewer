@@ -15,9 +15,15 @@
     overflow: hidden;
   }
 
-  #viewer-wrap { flex: 1; position: relative; background: #000; min-width: 0; }
+  /* ── VIEWER ── */
+  #viewer-wrap {
+    flex: 1; position: relative;
+    background: #000; min-width: 0;
+    transition: all 0.3s ease;
+  }
   #viewer { width: 100%; height: 100%; display: block; }
 
+  /* ── LOADING ── */
   #loading {
     position: absolute; inset: 0; background: #000;
     display: flex; align-items: center; justify-content: center;
@@ -31,28 +37,71 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   #loading p { color: #5a8aaa; font-size: 12px; }
 
+  /* ── ATOM TOOLTIP ── */
   #atom-tip {
     position: absolute; bottom: 14px; left: 14px;
     background: rgba(5,13,28,0.93);
     border: 1px solid #2e9d6a; border-radius: 6px;
     padding: 7px 11px; font-size: 11px; color: #b0d8f8;
     pointer-events: none; display: none; line-height: 1.7; max-width: 240px;
+    z-index: 10;
   }
   #atom-tip b { color: #5dd9a4; }
 
+  /* ── HINT ── */
   .hint {
     position: absolute; bottom: 14px; right: 14px;
     font-size: 9px; color: #223a55; line-height: 1.8;
     text-align: right; pointer-events: none;
+    transition: right 0.3s ease;
   }
 
-  /* SIDEBAR */
-  .sidebar {
-    width: 210px; flex-shrink: 0;
-    background: #080f1e; border-left: 1px solid #162840;
-    display: flex; flex-direction: column; overflow-y: auto;
+  /* ── TOGGLE BUTTON ── */
+  #toggle-btn {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    z-index: 30;
+    width: 22px;
+    height: 52px;
+    background: #0f2a42;
+    border: 1px solid #2e9d6a;
+    border-right: none;
+    border-radius: 6px 0 0 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #2e9d6a;
+    font-size: 13px;
+    transition: background 0.15s;
+    user-select: none;
   }
-  .sb { padding: 11px 11px 9px; border-bottom: 1px solid #111e30; }
+  #toggle-btn:hover { background: #173828; color: #5dd9a4; }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 210px;
+    flex-shrink: 0;
+    background: #080f1e;
+    border-left: 1px solid #162840;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    transition: width 0.3s ease, opacity 0.3s ease;
+    position: relative;
+  }
+  .sidebar.collapsed {
+    width: 0;
+    opacity: 0;
+    pointer-events: none;
+    border-left: none;
+  }
+
+  /* ── SIDEBAR SECTIONS ── */
+  .sb { padding: 11px 11px 9px; border-bottom: 1px solid #111e30; min-width: 210px; }
   .sb h3 {
     font-size: 7.5px; font-weight: 700; letter-spacing: 1.3px;
     text-transform: uppercase; color: #2e9d6a;
@@ -78,7 +127,7 @@
   }
   .tog-label { font-size: 10.5px; color: #b0cce8; }
 
-  .sw { position: relative; display: inline-block; width: 34px; height: 18px; }
+  .sw { position: relative; display: inline-block; width: 34px; height: 18px; flex-shrink: 0; }
   .sw input { opacity: 0; width: 0; height: 0; }
   .sl {
     position: absolute; cursor: pointer; inset: 0;
@@ -103,7 +152,23 @@
   }
   .info b { color: #5dd9a4; }
 
-  .foot { margin-top: auto; padding: 10px 11px; font-size: 8.5px; color: #1e3a55; text-align: center; line-height: 1.6; }
+  .foot {
+    margin-top: auto; padding: 10px 11px;
+    font-size: 8.5px; color: #1e3a55;
+    text-align: center; line-height: 1.6;
+    min-width: 210px;
+  }
+
+  /* ── MOBILE: sidebar starts collapsed, toggle floats ── */
+  @media (max-width: 600px) {
+    .sidebar { width: 0; opacity: 0; pointer-events: none; border-left: none; }
+    .sidebar.open {
+      width: 210px; opacity: 1; pointer-events: all;
+      border-left: 1px solid #162840;
+      position: absolute; right: 0; top: 0; bottom: 0; z-index: 25;
+    }
+    #toggle-btn { right: 0; }
+  }
 </style>
 </head>
 <body>
@@ -119,9 +184,12 @@
       Drag · rotate &nbsp;|&nbsp; Scroll · zoom<br>
       Right-drag · pan &nbsp;|&nbsp; Click · atom info
     </div>
+
+    <!-- Toggle button sits on the right edge of the viewer -->
+    <div id="toggle-btn" onclick="toggleSidebar()" title="Show/hide controls">‹</div>
   </div>
 
-  <div class="sidebar">
+  <div class="sidebar" id="sidebar">
 
     <div class="sb">
       <h3>Representation</h3>
@@ -137,10 +205,10 @@
     <div class="sb">
       <h3>Colouring</h3>
       <div class="grid2">
-        <button class="btn"     id="b-chain"    onclick="setColor('chain')">By chain</button>
-        <button class="btn on"  id="b-element"  onclick="setColor('element')">By element</button>
-        <button class="btn"     id="b-group"    onclick="setColor('group')">By group</button>
-        <button class="btn"     id="b-spectrum" onclick="setColor('spectrum')">Spectrum</button>
+        <button class="btn"    id="b-chain"    onclick="setColor('chain')">By chain</button>
+        <button class="btn on" id="b-element"  onclick="setColor('element')">By element</button>
+        <button class="btn"    id="b-group"    onclick="setColor('group')">By group</button>
+        <button class="btn"    id="b-spectrum" onclick="setColor('spectrum')">Spectrum</button>
       </div>
     </div>
 
@@ -209,7 +277,7 @@
       Wrocław Tech · Institute of Advanced Materials
     </div>
 
-  </div>
+  </div><!-- /sidebar -->
 
 <script>
 /*! For license information please see 3Dmol-min.js.LICENSE.txt */
@@ -954,15 +1022,14 @@ END
 `;
 
 const GROUPS = {
-  primer:    { resi: [1,2,3,4,5,6],                            color: '#ff6b6b' },
-  dinucl:    { resi: [7,9],                                    color: '#ffd700' },
-  imidazole: { resi: [8],                                      color: '#da8fff' },
-  helper:    { resi: [10,11,12],                               color: '#ff9f43' },
-  template:  { resi: [13,14,15,16,17,18,19,20,21,22,23],      color: '#4a9eff' },
-  mg:        { resi: [24],                                     color: '#00ff88' },
+  primer:    { resi: [1,2,3,4,5,6],                       color: '#ff6b6b' },
+  dinucl:    { resi: [7,9],                               color: '#ffd700' },
+  imidazole: { resi: [8],                                 color: '#da8fff' },
+  helper:    { resi: [10,11,12],                          color: '#ff9f43' },
+  template:  { resi: [13,14,15,16,17,18,19,20,21,22,23], color: '#4a9eff' },
+  mg:        { resi: [24],                                color: '#00ff88' },
 };
 
-// Group membership lookup by resi
 const RESI_TO_GROUP = {};
 for (const [g, def] of Object.entries(GROUPS))
   def.resi.forEach(r => RESI_TO_GROUP[r] = g);
@@ -976,8 +1043,15 @@ let viewer, initialView = null;
 let curStyle = 'stick', curColor = 'element';
 let vis = { primer:true, dinucl:true, imidazole:true, helper:true, template:true, mg:true };
 let showH = false;
+let sidebarOpen = true;
+
+// Detect mobile — start collapsed
+if (window.innerWidth <= 600) sidebarOpen = false;
 
 window.addEventListener('DOMContentLoaded', () => {
+  // Apply initial sidebar state
+  syncSidebar();
+
   viewer = $3Dmol.createViewer(document.getElementById('viewer'), {
     backgroundColor: 'black',
     antialias: true,
@@ -988,11 +1062,8 @@ window.addEventListener('DOMContentLoaded', () => {
   viewer.zoomTo();
   viewer.zoom(0.82);
   viewer.render();
-
-  // Store initial view for reliable reset
   initialView = viewer.getView();
 
-  // Click for atom info
   viewer.setClickable({}, true, (atom) => {
     const grp = RESI_TO_GROUP[atom.resi] || 'unknown';
     const tip = document.getElementById('atom-tip');
@@ -1003,13 +1074,55 @@ window.addEventListener('DOMContentLoaded', () => {
       `x=${atom.x?.toFixed(2)} &nbsp; y=${atom.y?.toFixed(2)} &nbsp; z=${atom.z?.toFixed(2)}`;
   });
 
+  // Hide tooltip on viewer click away
+  document.getElementById('viewer').addEventListener('click', () => {
+    // tip hides after 4s automatically
+    setTimeout(() => {
+      document.getElementById('atom-tip').style.display = 'none';
+    }, 4000);
+  });
+
   document.getElementById('loading').style.display = 'none';
+
+  // Resize viewer when sidebar toggles
+  window.addEventListener('resize', () => { viewer.resize(); viewer.render(); });
 });
 
-function render() {
-  viewer.setStyle({}, {}); // clear all styles
+function toggleSidebar() {
+  sidebarOpen = !sidebarOpen;
+  syncSidebar();
+  // Give CSS transition time then resize viewer canvas
+  setTimeout(() => { viewer.resize(); viewer.render(); }, 320);
+}
 
-  // Collect chain colours
+function syncSidebar() {
+  const sb  = document.getElementById('sidebar');
+  const btn = document.getElementById('toggle-btn');
+  const isMobile = window.innerWidth <= 600;
+
+  if (sidebarOpen) {
+    if (isMobile) {
+      sb.classList.remove('collapsed');
+      sb.classList.add('open');
+    } else {
+      sb.classList.remove('collapsed');
+    }
+    btn.textContent = '›';
+    btn.title = 'Hide controls';
+  } else {
+    if (isMobile) {
+      sb.classList.remove('open');
+    } else {
+      sb.classList.add('collapsed');
+    }
+    btn.textContent = '‹';
+    btn.title = 'Show controls';
+  }
+}
+
+function render() {
+  viewer.setStyle({}, {});
+
   const chainMap = {};
   let ci = 0;
   viewer.getModel(0).atoms.forEach(a => {
@@ -1017,67 +1130,55 @@ function render() {
       chainMap[a.chain] = CHAIN_COLS[ci++ % CHAIN_COLS.length];
   });
 
-  // Apply style per group
-  for (const [grp, def] of Object.entries(GROUPS)) {
-    if (!vis[grp]) continue;
-
-    const resiArr = def.resi;
-    const sel = showH ? { resi: resiArr } : { resi: resiArr, not: { elem: 'H' } };
-
-    let colorOpts;
-    if      (curColor === 'element')  colorOpts = { colorscheme: 'Jmol' };
-    else if (curColor === 'group')    colorOpts = { color: def.color };
-    else if (curColor === 'spectrum') colorOpts = { colorscheme: 'spectrum' };
-    else                              colorOpts = { color: def.color }; // chain fallback per group
-
-    viewer.setStyle(sel, styleSpec(colorOpts));
-  }
-
-  // Chain colour override: iterate per chain, respecting vis
   if (curColor === 'chain') {
-    viewer.setStyle({}, {}); // clear again
     for (const [ch, col] of Object.entries(chainMap)) {
-      // Apply per-chain but only for visible residues
       for (const [grp, def] of Object.entries(GROUPS)) {
         if (!vis[grp]) continue;
-        const sel = showH
-          ? { chain: ch, resi: def.resi }
-          : { chain: ch, resi: def.resi, not: { elem: 'H' } };
+        const sel = showH ? { chain:ch, resi:def.resi } : { chain:ch, resi:def.resi, not:{elem:'H'} };
         viewer.setStyle(sel, styleSpec({ color: col }));
       }
     }
+  } else {
+    for (const [grp, def] of Object.entries(GROUPS)) {
+      if (!vis[grp]) continue;
+      const sel = showH ? { resi:def.resi } : { resi:def.resi, not:{elem:'H'} };
+      let colorOpts;
+      if      (curColor === 'element')  colorOpts = { colorscheme: 'Jmol' };
+      else if (curColor === 'group')    colorOpts = { color: def.color };
+      else                              colorOpts = { colorscheme: 'spectrum' };
+      viewer.setStyle(sel, styleSpec(colorOpts));
+    }
   }
 
-  // Mg²⁺ always as sphere regardless of style mode
   if (vis.mg) {
-    viewer.setStyle({ resi: [24] }, { sphere: { color: '#00ff88', radius: 0.8 } });
+    viewer.setStyle({ resi:[24] }, { sphere:{ color:'#00ff88', radius:0.8 } });
   }
 
   viewer.render();
 }
 
-function styleSpec(colorOpts) {
+function styleSpec(c) {
   switch (curStyle) {
-    case 'stick':     return { stick:   { ...colorOpts, radius: 0.13 } };
-    case 'sphere':    return { sphere:  { ...colorOpts, radius: 0.38 } };
-    case 'cartoon':   return { cartoon: { ...colorOpts, thickness: 0.4 } };
-    case 'line':      return { line:    { ...colorOpts, linewidth: 2 } };
-    case 'ballstick': return { stick:   { ...colorOpts, radius: 0.1, sphereRadius: 0.3 } };
-    default:          return { stick:   { ...colorOpts, radius: 0.13 } };
+    case 'stick':     return { stick:   { ...c, radius:0.13 } };
+    case 'sphere':    return { sphere:  { ...c, radius:0.38 } };
+    case 'cartoon':   return { cartoon: { ...c, thickness:0.4 } };
+    case 'line':      return { line:    { ...c, linewidth:2 } };
+    case 'ballstick': return { stick:   { ...c, radius:0.1, sphereRadius:0.3 } };
+    default:          return { stick:   { ...c, radius:0.13 } };
   }
 }
 
 function setStyle(s) {
   curStyle = s;
   ['stick','sphere','cartoon','line','ballstick'].forEach(x =>
-    document.getElementById('b-'+x)?.classList.toggle('on', x === s));
+    document.getElementById('b-'+x)?.classList.toggle('on', x===s));
   render();
 }
 
 function setColor(c) {
   curColor = c;
   ['chain','element','group','spectrum'].forEach(x =>
-    document.getElementById('b-'+x)?.classList.toggle('on', x === c));
+    document.getElementById('b-'+x)?.classList.toggle('on', x===c));
   render();
 }
 
@@ -1085,14 +1186,8 @@ function togGroup(grp, val) { vis[grp] = val; render(); }
 function togH(val)           { showH = val; render(); }
 
 function resetView() {
-  if (initialView) {
-    viewer.setView(initialView);
-    viewer.render();
-  } else {
-    viewer.zoomTo();
-    viewer.zoom(0.82);
-    viewer.render();
-  }
+  if (initialView) { viewer.setView(initialView); viewer.render(); }
+  else { viewer.zoomTo(); viewer.zoom(0.82); viewer.render(); }
 }
 </script>
 </body>
