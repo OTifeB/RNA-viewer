@@ -260,10 +260,8 @@
       <div class="sb">
         <h3>Colouring</h3>
         <div class="grid2">
-          <button class="btn"    id="b-chain"    onclick="setColor('chain')">By chain</button>
           <button class="btn on" id="b-element"  onclick="setColor('element')">By element</button>
           <button class="btn"    id="b-group"    onclick="setColor('group')">By group</button>
-          <button class="btn"    id="b-spectrum" onclick="setColor('spectrum')">Spectrum</button>
         </div>
       </div>
 
@@ -1230,7 +1228,7 @@ function setStyle(s) {
 
 function setColor(c) {
   curColor = c;
-  ['chain','element','group','spectrum'].forEach(id =>
+  ['element','group'].forEach(id =>
     document.getElementById('b-'+id)?.classList.toggle('on', id===c));
   render();
 }
